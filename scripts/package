@@ -1,0 +1,38 @@
+#!/bin/bash
+set -e
+
+TOP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
+SCRIPTS_DIR="${TOP_DIR}/scripts"
+PACKAGE_DIR="${TOP_DIR}/package"
+
+source $SCRIPTS_DIR/version
+
+cd $TOP_DIR
+
+mkdir -p dist/artifacts
+cp bin/coredhcp dist/artifacts/coredhcp${SUFFIX}
+
+cd $PACKAGE_DIR
+
+IMAGE=${REPO}/coredhcp:${TAG}
+DOCKERFILE=Dockerfile
+if [ -e ${DOCKERFILE}.${ARCH} ]; then
+    DOCKERFILE=${DOCKERFILE}.${ARCH}
+fi
+
+rm -rf ./coredhcp
+cp ../bin/coredhcp .
+
+docker build --build-arg VERSION=${VERSION} -f ${DOCKERFILE} -t ${IMAGE} .
+echo Built ${IMAGE}
+
+if [[ -n ${PUSH} ]];then
+  DOCKER_CONFIG="../.docker"
+
+  IMAGE_PUSH=${REPO}/coredhcp:${IMAGE_PUSH_TAG}
+  docker tag "${IMAGE}" "${IMAGE_PUSH}"
+  echo Tagged "${IMAGE_PUSH}"
+
+  docker --config=${DOCKER_CONFIG} push "${IMAGE_PUSH}"
+  echo Pushed "${IMAGE_PUSH}"
+fi

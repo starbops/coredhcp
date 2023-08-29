@@ -1,0 +1,43 @@
+#!/bin/bash
+
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    DIRTY="-dirty"
+fi
+
+COMMIT=$(git rev-parse --short=8 HEAD)
+COMMIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+COMMIT_BRANCH_FORMATTED=$(echo "${COMMIT_BRANCH}" | sed -E 's/[^a-zA-Z0-9]+/-/g')
+GIT_TAG=$(git tag -l --contains HEAD | head -n 1)
+
+if [[ -z "$DIRTY" && -n "$GIT_TAG" ]]; then
+    VERSION=$GIT_TAG
+    IMAGE_PUSH_TAG="${GIT_TAG}"
+    APP_VERSION="${GIT_TAG}"
+    CHART_VERSION="${GIT_TAG}"
+else
+    VERSION="${COMMIT}${DIRTY}"
+    IMAGE_PUSH_TAG="${COMMIT_BRANCH}-head"
+    APP_VERSION="${COMMIT_BRANCH}-${COMMIT}${DIRTY}"
+    CHART_VERSION="v0.0.0-${COMMIT_BRANCH_FORMATTED}-${COMMIT}${DIRTY}"
+fi
+
+if [ -z "$ARCH" ]; then
+    ARCH=$(go env GOHOSTARCH)
+fi
+
+if [ -z "$OS" ]; then
+    OS=$(go env GOHOSTOS)
+fi
+
+SUFFIX="-${ARCH}"
+
+HELM_TAG=${TAG:-${VERSION}}
+HELM_VERSION=${HELM_TAG/v/}
+TAG=${TAG:-${VERSION}${SUFFIX}}
+REPO=${REPO:-starbops}
+
+if echo $TAG | grep -q dirty; then
+    TAG=dev
+    HELM_TAG=dev
+    HELM_VERSION=0.0.0-dev
+fi
